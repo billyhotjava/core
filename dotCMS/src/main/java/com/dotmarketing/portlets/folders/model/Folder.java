@@ -327,6 +327,12 @@ public class Folder extends Inode implements Serializable, Permissionable, Treea
 		return true;
 	}
 
-
-
+	/**
+	 * Evaluates if current folder is considered as SYSTEM_FOLDER.
+	 *
+	 * @return true if it does, otherwise false.
+	 */
+	public boolean isSystemFolder() {
+		return SYSTEM_FOLDER.equalsIgnoreCase(getInode());
+	}
 }
