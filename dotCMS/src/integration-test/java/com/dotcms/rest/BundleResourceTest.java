@@ -1,5 +1,7 @@
 package com.dotcms.rest;
 
+import com.dotcms.contenttype.model.type.ContentType;
+import com.dotcms.datagen.ContentTypeDataGen;
 import com.dotcms.mock.request.MockAttributeRequest;
 import com.dotcms.mock.request.MockHeaderRequest;
 import com.dotcms.mock.request.MockHttpRequest;
@@ -8,6 +10,7 @@ import com.dotcms.mock.response.MockAsyncResponse;
 import com.dotcms.mock.response.MockHttpResponse;
 import com.dotcms.publisher.bundle.bean.Bundle;
 import com.dotcms.publisher.business.DotPublisherException;
+import com.dotcms.publisher.business.PublisherAPI;
 import com.dotcms.publisher.pusher.PushPublisherConfig;
 import com.dotcms.publishing.FilterDescriptor;
 import com.dotcms.publishing.PublisherAPIImpl;
@@ -16,9 +19,12 @@ import com.dotmarketing.beans.Host;
 import com.dotmarketing.business.APILocator;
 import com.dotmarketing.business.CacheLocator;
 import com.dotmarketing.business.DotCacheException;
+import com.dotmarketing.db.HibernateUtil;
 import com.dotmarketing.exception.DotDataException;
 import com.dotmarketing.portlets.contentlet.model.Contentlet;
+import com.dotmarketing.portlets.contentlet.model.IndexPolicy;
 import com.dotmarketing.portlets.folders.model.Folder;
+import com.dotmarketing.util.Logger;
 import com.dotmarketing.util.UUIDGenerator;
 import com.google.common.collect.ImmutableMap;
 import com.liferay.portal.model.User;
@@ -28,6 +34,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Map;
 import javax.ws.rs.container.AsyncResponse;
@@ -243,14 +250,44 @@ public class BundleResourceTest {
      */
     @Test
     public void test_generateBundle_without_SystemHost_and_SystemFolder_references() throws Exception {
+        // add system host
+        final Host systemHost = APILocator.getHostAPI().findSystemHost();
+        Logger.info(this, "OJO:>> " + systemHost.getInode() + "/" + systemHost.getIdentifier());
         //Create new bundle
         final String bundleId = insertPublishingBundle(adminUser.getUserId(),new Date());
+        final Bundle bundle = APILocator.getBundleAPI().getBundleById(bundleId);
+
+        /*Host host = new Host();
+        host.setHostname("hostGenerate" + System.currentTimeMillis() + ".dotcms.com");
+        host.setDefault(false);
+        host.setSystemHost(false);
+        host.setHost("SYSTEM_HOST");
+        host.setTagStorage("SYSTEM_HOST");
+        host.setLanguageId(APILocator.getLanguageAPI().getDefaultLanguage().getId());
+        host.setIndexPolicy(IndexPolicy.FORCE);
+        host = APILocator.getHostAPI().save(host, adminUser, false);*/
+        Folder folder = APILocator.getFolderAPI().createFolders(
+                "/folderGenerate" + System.currentTimeMillis(),
+                systemHost,
+                adminUser,
+                false);
+
+        final ContentTypeDataGen contentTypeDataGen = new ContentTypeDataGen();
+        final String contentTypeName = "someContent" + System.currentTimeMillis();
+        ContentType contentType = contentTypeDataGen.name(contentTypeName).nextPersisted();
+        contentType = contentTypeDataGen
+                .name(contentTypeName)
+                .host(systemHost)
+                .folder(folder)
+                .persist(contentType);
+        final Map<String, Object> responseMap = PublisherAPI
+                .getInstance()
+                .saveBundleAssets(Collections.singletonList(contentType.id()), bundle.getId(), adminUser);
 
         //Create a Filter since it's needed to generate the bundle
         createFilter();
 
         //Generate bundle file
-        final Bundle bundle = APILocator.getBundleAPI().getBundleById(bundleId);
         bundle.setOperation(PushPublisherConfig.Operation.PUBLISH.ordinal());
         final File bundleFile = APILocator.getBundleAPI().generateTarGzipBundleFile(bundle);
 
@@ -262,13 +299,15 @@ public class BundleResourceTest {
 
         assertTrue(bundleFile.exists());
 
-        final Host systemHost = APILocator.getHostAPI().findSystemHost();
         final Folder systemFolder = APILocator.getFolderAPI().findSystemFolder();
-        final String bundleDir = bundleFile.getAbsolutePath().substring(0, bundleFile.getAbsolutePath().indexOf(".tar.gz"));
+        final String bundleDir = bundleFile
+                .getAbsolutePath()
+                .substring(0, bundleFile.getAbsolutePath().indexOf(".tar.gz"));
         recursiveFindAndRun(
                 Paths.get(bundleDir),
                 path -> {
-                    assertNotEquals(("/system host"), path.toFile().getName());
+                    Logger.info(BundleResourceTest.class, "OJO:>> " + path.toFile().getAbsolutePath());
+                    assertNotEquals(("/system host" + HOST_EXTENSION), path.toFile().getName());
                     assertNotEquals((systemFolder.getIdentifier() + FOLDER_EXTENSION), path.toFile().getName());
                 });
     }
