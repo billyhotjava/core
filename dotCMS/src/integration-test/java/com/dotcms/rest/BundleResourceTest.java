@@ -252,34 +252,17 @@ public class BundleResourceTest {
     public void test_generateBundle_without_SystemHost_and_SystemFolder_references() throws Exception {
         // add system host
         final Host systemHost = APILocator.getHostAPI().findSystemHost();
-        Logger.info(this, "OJO:>> " + systemHost.getInode() + "/" + systemHost.getIdentifier());
+        Logger.info(this, ">> " + systemHost.getInode() + "/" + systemHost.getIdentifier());
         //Create new bundle
         final String bundleId = insertPublishingBundle(adminUser.getUserId(),new Date());
         final Bundle bundle = APILocator.getBundleAPI().getBundleById(bundleId);
 
-        /*Host host = new Host();
-        host.setHostname("hostGenerate" + System.currentTimeMillis() + ".dotcms.com");
-        host.setDefault(false);
-        host.setSystemHost(false);
-        host.setHost("SYSTEM_HOST");
-        host.setTagStorage("SYSTEM_HOST");
-        host.setLanguageId(APILocator.getLanguageAPI().getDefaultLanguage().getId());
-        host.setIndexPolicy(IndexPolicy.FORCE);
-        host = APILocator.getHostAPI().save(host, adminUser, false);*/
-        Folder folder = APILocator.getFolderAPI().createFolders(
-                "/folderGenerate" + System.currentTimeMillis(),
-                systemHost,
-                adminUser,
-                false);
-
         final ContentTypeDataGen contentTypeDataGen = new ContentTypeDataGen();
         final String contentTypeName = "someContent" + System.currentTimeMillis();
-        ContentType contentType = contentTypeDataGen.name(contentTypeName).nextPersisted();
-        contentType = contentTypeDataGen
-                .name(contentTypeName)
-                .host(systemHost)
-                .folder(folder)
-                .persist(contentType);
+
+        ContentType contentType = contentTypeDataGen.name(contentTypeName).host(systemHost)
+                .nextPersisted();
+
         final Map<String, Object> responseMap = PublisherAPI
                 .getInstance()
                 .saveBundleAssets(Collections.singletonList(contentType.id()), bundle.getId(), adminUser);
@@ -306,8 +289,8 @@ public class BundleResourceTest {
         recursiveFindAndRun(
                 Paths.get(bundleDir),
                 path -> {
-                    Logger.info(BundleResourceTest.class, "OJO:>> " + path.toFile().getAbsolutePath());
-                    assertNotEquals(("/system host" + HOST_EXTENSION), path.toFile().getName());
+                    Logger.info(BundleResourceTest.class, ">> " + path.toFile().getAbsolutePath());
+                    assertNotEquals(("system host" + HOST_EXTENSION), path.toFile().getName());
                     assertNotEquals((systemFolder.getIdentifier() + FOLDER_EXTENSION), path.toFile().getName());
                 });
     }
